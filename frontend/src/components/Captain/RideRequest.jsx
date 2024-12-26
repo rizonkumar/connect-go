@@ -1,5 +1,7 @@
 import { Power, Circle, Square, ArrowLeft, User, Clock } from "lucide-react";
 import { useSocket } from "../../context/SocketContext";
+import { acceptRide } from "../../api/captainApi";
+import { toast } from "react-toastify";
 
 const RideRequest = ({
   requests,
@@ -17,29 +19,20 @@ const RideRequest = ({
     }).format(price);
   };
 
-  const getPaymentMethodTag = (method) => {
-    switch (method) {
-      case "cash":
-        return {
-          text: "Cash",
-          bgColor: "bg-yellow-100",
-          textColor: "text-yellow-800",
-          icon: "💵",
-        };
-      case "card":
-        return {
-          text: "Card",
-          bgColor: "bg-blue-100",
-          textColor: "text-blue-800",
-          icon: "💳",
-        };
-      default:
-        return {
-          text: "Cash",
-          bgColor: "bg-yellow-100",
-          textColor: "text-yellow-800",
-          icon: "💵",
-        };
+  // RideRequest.jsx
+  const handleAcceptRide = async (request) => {
+    try {
+      const response = await acceptRide(request.rideId);
+
+      if (response.data.status === "success") {
+        // Call the parent handler
+        onAcceptRide(request);
+      } else {
+        throw new Error(response.data.message || "Failed to accept ride");
+      }
+    } catch (error) {
+      console.error("Error accepting ride:", error);
+      toast.error(error.message);
     }
   };
 
@@ -114,29 +107,6 @@ const RideRequest = ({
                           New Ride Request
                         </h3>
                         <div className="flex gap-2 mt-1">
-                          {/* Payment Method Tag */}
-                          {request.paymentMethod && (
-                            <span
-                              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-sm ${
-                                getPaymentMethodTag(request.paymentMethod)
-                                  .bgColor
-                              } ${getPaymentMethodTag(request.paymentMethod).textColor}`}
-                            >
-                              <span>
-                                {
-                                  getPaymentMethodTag(request.paymentMethod)
-                                    .icon
-                                }
-                              </span>
-                              <span>
-                                {
-                                  getPaymentMethodTag(request.paymentMethod)
-                                    .text
-                                }
-                              </span>
-                            </span>
-                          )}
-                          {/* Distance Tag */}
                           <span className="bg-blue-100 text-blue-800 text-sm px-2 py-0.5 rounded-md">
                             {request.distance} km
                           </span>
@@ -164,11 +134,6 @@ const RideRequest = ({
                       <p className="font-medium text-gray-900">
                         {request.pickup}
                       </p>
-                      {request.pickupNote && (
-                        <p className="text-sm text-gray-500 mt-1">
-                          {request.pickupNote}
-                        </p>
-                      )}
                     </div>
                   </div>
 
@@ -182,18 +147,13 @@ const RideRequest = ({
                       <p className="font-medium text-gray-900">
                         {request.destination}
                       </p>
-                      {request.dropoffNote && (
-                        <p className="text-sm text-gray-500 mt-1">
-                          {request.dropoffNote}
-                        </p>
-                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Accept Button */}
                 <button
-                  onClick={() => onAcceptRide(request)}
+                  onClick={() => handleAcceptRide(request)}
                   className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium py-4 transition-colors flex items-center justify-center gap-2"
                 >
                   <span>Accept Ride</span>

@@ -32,23 +32,43 @@ module.exports.getDistanceTime = async (origin, destination) => {
     )}&destinations=${encodeURIComponent(destination)}&key=${apiKey}`;
 
     const response = await axios.get(url);
-    if (response.data.status === "OK") {
-      if (
-        response.data.rows[0].elements[0].status === "NOT_FOUND" ||
-        response.data.rows[0].elements[0].status === "ZERO_RESULTS"
-      ) {
-        throw new AppError("No route found between the two locations", 400);
-      }
-      // Return distance in kilometers
-      return response.data.rows[0].elements[0].distance.value / 1000;
-    } else {
-      throw new AppError(
-        response.data.error_message || "Distance Matrix API error",
-        500
-      );
+    console.log("Google Maps API Response:", response.data); // Debug log
+
+    if (response.data.status !== "OK") {
+      throw new AppError("Failed to get distance from Google Maps API", 400);
     }
+
+    if (!response.data.rows?.[0]?.elements?.[0]) {
+      throw new AppError("No route information available", 400);
+    }
+
+    const element = response.data.rows[0].elements[0];
+
+    if (element.status !== "OK") {
+      throw new AppError("Unable to calculate route", 400);
+    }
+
+    // Extract values and convert to numbers
+    const distanceInKm = Number(element.distance.value) / 1000;
+    const durationInMinutes = Math.ceil(Number(element.duration.value) / 60);
+
+    console.log("Calculated values:", {
+      distanceInKm,
+      durationInMinutes,
+      durationText: element.duration.text
+    });
+
+    return {
+      distanceInKm,
+      durationInMinutes,
+      durationText: element.duration.text
+    };
   } catch (error) {
-    throw new AppError(error.message || "Error calculating distance", 400);
+    console.error("Error in getDistanceTime:", error);
+    throw new AppError(
+      error.message || "Error calculating distance and time",
+      error.statusCode || 500
+    );
   }
 };
 

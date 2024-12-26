@@ -3,6 +3,7 @@ const AppError = require("../utils/AppError");
 const mapService = require("../services/map.service");
 const crypto = require("crypto");
 const axios = require("axios");
+const Ride = require("../models/ride.model");
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -11,37 +12,71 @@ async function getFare(pickup, destination) {
     throw new AppError("Pickup and destination are required", 400);
   }
 
-  // Base fares and per kilometer rates for different vehicle types
-  const fareRates = {
-    auto: {
-      baseFare: 30,
-      perKm: 15,
-      minFare: 30,
-    },
-    car: {
-      baseFare: 50,
-      perKm: 20,
-      minFare: 50,
-    },
-    motorcycle: {
-      baseFare: 20,
-      perKm: 12,
-      minFare: 20,
-    },
-  };
+  try {
+    // Base fares and per kilometer rates for different vehicle types
+    const fareRates = {
+      auto: {
+        baseFare: 30,
+        perKm: 15,
+        minFare: 30,
+      },
+      car: {
+        baseFare: 50,
+        perKm: 20,
+        minFare: 50,
+      },
+      motorcycle: {
+        baseFare: 20,
+        perKm: 12,
+        minFare: 20,
+      },
+    };
 
-  const distance = await mapService.getDistanceTime(pickup, destination);
+    // Get distance and time
+    const distanceTimeData = await mapService.getDistanceTime(pickup, destination);
+    const distanceInKm = distanceTimeData.distanceInKm; // Make sure we're using the correct property
 
-  // Calculate fares for all vehicle types
-  const fares = {};
-  for (const [vehicleType, rate] of Object.entries(fareRates)) {
-    let fare = rate.baseFare + distance * rate.perKm;
-    // Ensure fare is not less than minimum fare
-    fare = Math.max(fare, rate.minFare);
-    fares[vehicleType] = Math.round(fare);
+    console.log("Distance data:", distanceTimeData); // Debug log
+
+    if (!distanceInKm || isNaN(distanceInKm)) {
+      throw new AppError("Invalid distance calculation", 400);
+    }
+
+    // Calculate fares for all vehicle types
+    const fares = {};
+    for (const [vehicleType, rate] of Object.entries(fareRates)) {
+      // Ensure all values are numbers
+      const baseFare = Number(rate.baseFare);
+      const perKm = Number(rate.perKm);
+      const minFare = Number(rate.minFare);
+      const distance = Number(distanceInKm);
+
+      // Calculate fare
+      let fare = baseFare + (distance * perKm);
+      // Ensure fare is not less than minimum fare
+      fare = Math.max(fare, minFare);
+      // Round to nearest integer
+      fares[vehicleType] = Math.round(fare);
+
+      // Verify calculation
+      console.log(`${vehicleType} fare calculation:`, {
+        baseFare,
+        perKm,
+        distance,
+        calculatedFare: fare,
+        roundedFare: fares[vehicleType]
+      });
+    }
+
+    console.log("Final calculated fares:", fares); // Debug log
+    return fares;
+  } catch (error) {
+    console.error("Error in getFare:", error);
+    throw new AppError(
+      error.message || "Error calculating fares",
+      error.statusCode || 500
+    );
   }
-
-  return fares;
 }
 
 function getOTP(num) {
@@ -49,25 +84,54 @@ function getOTP(num) {
   return Array.from({ length: num }, () => crypto.randomInt(0, 10)).join("");
 }
 
-const createRide = async ({ user, pickup, destination }) => {
-  if (!user || !pickup || !destination) {
-    throw new AppError("User, pickup and destination are required", 400);
-  }
-
-  const fares = await getFare(pickup, destination);
-  const fare = fares[user.vehicleType];
-  const otp = getOTP(4);
-
-  const ride = await rideModel.create({
-    user: user.id,
+const createRide = async ({ user, pickup, destination, vehicleType, fare }) => {
+  console.log("Creating ride with params:", {
+    userId: user,
     pickup,
     destination,
+    vehicleType,
     fare,
-    status: "pending",
-    otp,
   });
 
-  return ride;
+  try {
+    // Validate required fields
+    if (!user || !pickup || !destination || !vehicleType || !fare) {
+      throw new AppError(
+        "User, pickup, destination, vehicleType and fare are required",
+        400
+      );
+    }
+
+    // Generate OTP
+    const otp = getOTP(4);
+    console.log("Generated OTP:", otp);
+
+    // Create ride record
+    const ride = await rideModel.create({
+      user,
+      pickup,
+      destination,
+      vehicleType,
+      fare,
+      otp,
+      status: "pending",
+    });
+
+    console.log("Successfully created ride:", {
+      rideId: ride._id,
+      userId: ride.user,
+      status: ride.status,
+      otp: ride.otp,
+    });
+
+    return ride;
+  } catch (error) {
+    console.error("Error creating ride:", error);
+    throw new AppError(
+      `Failed to create ride: ${error.message}`,
+      error.statusCode || 500
+    );
+  }
 };
 
 const getAllRides = async () => {
@@ -94,7 +158,7 @@ const getUserRides = async (userId) => {
       .sort({ createdAt: -1 })
       .populate("captain", "fullName")
       .select(
-        "pickup destination fare status captain createdAt duration distance",
+        "pickup destination fare status captain createdAt duration distance"
       );
 
     return rides;
@@ -119,7 +183,7 @@ const getCaptainRides = async (captainId) => {
     // Calculate total earnings
     const totalEarnings = rides.reduce(
       (total, ride) => total + (ride.fare || 0),
-      0,
+      0
     );
 
     return {
@@ -153,7 +217,7 @@ const calculateETA = async (pickup, destination) => {
           departure_time: "now",
           traffic_model: "best_guess",
         },
-      },
+      }
     );
 
     // Validate API response
@@ -202,8 +266,43 @@ const calculateETA = async (pickup, destination) => {
     console.error("Detailed ETA Calculation Error:", error);
     throw new AppError(
       error.message || "Failed to calculate ETA from Google Maps",
-      500,
+      500
     );
+  }
+};
+
+const acceptRide = async ({ rideId, captainId }) => {
+  try {
+    const ride = await Ride.findById(rideId);
+    if (!ride) {
+      throw new AppError("Ride not found", 404);
+    }
+
+    // Check if ride is already accepted
+    if (ride.status !== "pending") {
+      throw new AppError("Ride is no longer available", 400);
+    }
+
+    // Calculate duration using map service
+    const distanceTimeData = await mapService.getDistanceTime(
+      ride.pickup,
+      ride.destination
+    );
+
+    // Update ride
+    ride.duration = distanceTimeData.durationInMinutes;
+    ride.durationText = distanceTimeData.durationText;
+    ride.status = "accepted";
+    ride.captain = captainId;
+
+    await ride.save();
+
+    return {
+      ride,
+      distanceTimeData,
+    };
+  } catch (error) {
+    throw new AppError(error.message, error.statusCode || 500);
   }
 };
 
@@ -214,4 +313,5 @@ module.exports = {
   getCaptainRides,
   getFare,
   calculateETA,
+  acceptRide,
 };

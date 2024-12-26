@@ -8,6 +8,7 @@ const {
   getCaptainRides,
   getFare,
   getETA,
+  acceptRide,
 } = require("../controllers/ride.controller");
 const { authUser, authCaptain } = require("../middleware/auth.middleware");
 
@@ -43,5 +44,7 @@ router.get("/captain/rides", authCaptain, getCaptainRides);
 router.get("/fare", authUser, getFare);
 
 router.get("/eta", authUser, getETA);
+
+router.post("/accept-ride", authCaptain, acceptRide);
 
 module.exports = router;

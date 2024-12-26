@@ -27,11 +27,28 @@ export const getETA = async (pickup, dropoff) => {
 };
 
 export const createRide = async (pickup, destination, vehicleType) => {
-  const body = {
-    pickup,
-    destination,
-    vehicleType,
-  };
-  const url = "/api/rides/create-ride";
-  return generalApi.GeneralApi.post(url, body);
+  try {
+    const body = {
+      pickup,
+      destination,
+      vehicleType,
+    };
+    console.log("Creating ride with:", body);
+    const url = "/api/rides/create-ride";
+    const response = await generalApi.GeneralApi.post(url, body);
+    return response;
+  } catch (error) {
+    console.error("Error in createRide:", error);
+    throw error;
+  }
+};
+
+
+export const getDistanceTime = async (pickup, dropoff) => {
+  return generalApi.GeneralApi.get("/api/maps/get-distance-time", {
+    params: {
+      origin: pickup,
+      destination: dropoff
+    }
+  });
 };

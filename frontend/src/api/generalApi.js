@@ -14,16 +14,21 @@ let GeneralApi = axios.create({
 
 GeneralApi.interceptors.request.use(
   (config) => {
-    // Get token using the helper function that checks both user and captain tokens
     const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log("Request config:", {
+      url: config.url,
+      method: config.method,
+      headers: config.headers,
+      data: config.data,
+    });
     return config;
   },
   (error) => {
     return Promise.reject(error);
-  },
+  }
 );
 
 GeneralApi.interceptors.response.use(
@@ -58,7 +63,7 @@ GeneralApi.interceptors.response.use(
     console.error("Error Config:", error.config);
 
     return Promise.resolve(error);
-  },
+  }
 );
 
 export default { GeneralApi };

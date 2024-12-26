@@ -11,7 +11,7 @@ const RideConfirm = ({ selectedRide, pickup, dropoff, onNext, onBack }) => {
         onBack();
       }
     },
-    [onBack],
+    [onBack]
   );
 
   const handleConfirm = async () => {
@@ -39,9 +39,12 @@ const RideConfirm = ({ selectedRide, pickup, dropoff, onNext, onBack }) => {
       }
 
       const response = await createRide(pickup, dropoff, vehicleType);
+      console.log("Create ride response:", response); // For debugging
 
       if (response.data.status === "success") {
         onNext();
+      } else {
+        throw new Error(response?.data?.message || "Failed to create ride");
       }
     } catch (error) {
       console.error("Error Creating Ride", error);

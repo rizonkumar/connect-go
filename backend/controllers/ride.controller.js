@@ -1,11 +1,22 @@
 const rideService = require("../services/ride.service");
 const mapService = require("../services/map.service");
 const AppError = require("../utils/AppError");
+const Ride = require("../models/ride.model");
 
 const createRide = async (req, res, next) => {
   try {
     const { pickup, destination, vehicleType } = req.body;
     const user = req.user;
+
+    console.log("Create ride request:", {
+      body: req.body,
+      userId: user?._id,
+      vehicleType,
+    });
+
+    if (!user) {
+      throw new AppError("User not authenticated", 401);
+    }
 
     if (!pickup || !destination || !vehicleType) {
       throw new AppError(
@@ -14,37 +25,57 @@ const createRide = async (req, res, next) => {
       );
     }
 
+    // Get fares for the route
+    const fares = await rideService.getFare(pickup, destination);
+    console.log("Calculated fares:", fares);
+
+    const fare = fares[vehicleType];
+    if (!fare) {
+      throw new AppError(
+        `Could not calculate fare for vehicle type: ${vehicleType}`,
+        400
+      );
+    }
+
+    // Create the ride
     const ride = await rideService.createRide({
-      user: {
-        id: user._id,
-        vehicleType,
-      },
+      user: user._id,
       pickup,
       destination,
+      vehicleType,
+      fare,
     });
 
-    // Get io instance and emit event
+    console.log("Created ride:", {
+      rideId: ride._id,
+      userId: user._id,
+      fare: ride.fare,
+      otp: ride.otp,
+    });
+
+    // Emit socket event for nearby drivers
     const io = req.app.get("io");
     if (io) {
       io.emit("ride:new_request", {
         rideId: ride._id,
-        userId: user.id,
+        userId: user._id,
         userName: `${user.fullName.firstName} ${user.fullName.lastName}`,
-        userImage: user.image || "/default-avatar.png",
         pickup,
         destination,
         vehicleType,
         fare: ride.fare,
-        paymentMethod: "cash", // Or get from request
-        distance: ride.distance || "0",
+        otp: ride.otp,
       });
+      console.log("Emitted ride:new_request event to drivers");
     }
+
     res.status(201).json({
       status: "success",
       message: "Ride created successfully",
       data: { ride },
     });
   } catch (error) {
+    console.error("Error in createRide controller:", error);
     next(new AppError(error.message || "Error creating ride", 500));
   }
 };
@@ -182,6 +213,67 @@ const getETA = async (req, res, next) => {
   }
 };
 
+const acceptRide = async (req, res, next) => {
+  try {
+    const { rideId } = req.body;
+    const captainId = req.captain._id;
+
+    const ride = await Ride.findById(rideId);
+    if (!ride) {
+      throw new AppError("Ride not found", 404);
+    }
+
+    if (ride.status !== "pending") {
+      throw new AppError("Ride is no longer available", 400);
+    }
+
+    const distanceTimeData = await mapService.getDistanceTime(
+      ride.pickup,
+      ride.destination
+    );
+
+    ride.duration = distanceTimeData.durationInMinutes;
+    ride.durationText = distanceTimeData.durationText;
+    ride.status = "accepted";
+    ride.captain = captainId;
+
+    await ride.save();
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(ride.user.toString()).emit("ride:accepted", {
+        rideId: ride._id,
+        captain: {
+          id: req.captain._id,
+          name: `${req.captain.fullName.firstName} ${req.captain.fullName.lastName}`,
+          vehicle: req.captain.vehicle,
+        },
+        fare: ride.fare,
+        duration: distanceTimeData.durationInMinutes,
+        durationText: distanceTimeData.durationText,
+        status: ride.status,
+        otp: ride.otp,
+      });
+
+      // Notify other drivers
+      io.emit("ride:unavailable", rideId);
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Ride accepted successfully",
+      data: { ride },
+    });
+  } catch (error) {
+    next(new AppError(error.message || "Error accepting ride", 500));
+  }
+};
+
+// Need to implement rejectRide
+const rejectRide = async (req, res, next) => {
+  console.log("Reject ride request:", req.body);
+};
+
 module.exports = {
   createRide,
   getAllRides,
@@ -189,4 +281,5 @@ module.exports = {
   getCaptainRides,
   getFare,
   getETA,
+  acceptRide,
 };

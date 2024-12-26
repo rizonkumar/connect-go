@@ -1,38 +1,66 @@
 import { Phone, MessageSquare, X, MapPin } from "lucide-react";
 
 const AcceptedRideDetails = ({ rideDetails, onCancel, onGoToPickup }) => {
-  const { passenger, pickup, dropoff, fare, distance, notes, payments } =
-    rideDetails;
+  console.log("Ride Details: ---->>", rideDetails);
+
+  if (!rideDetails) {
+    return <div>Loading...</div>;
+  }
+
+  // Format duration for display
+  const formatDuration = (minutes) => {
+    if (!minutes) return "Calculating...";
+
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return mins > 0 ? `${hours} hr ${mins} min` : `${hours} hr`;
+    }
+    return `${minutes} min`;
+  };
+
+  const {
+    passenger,
+    pickup,
+    dropoff,
+    fare,
+    distance,
+    notes,
+    payments,
+    duration,
+  } = rideDetails;
+
+  const formattedDuration =
+    rideDetails.durationText || formatDuration(duration);
 
   return (
     <div className="fixed inset-0 bg-white z-50">
       {/* Header */}
       <div className="bg-white border-b p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img
-            src={passenger.image}
-            alt={passenger.name}
-            className="w-12 h-12 rounded-full object-cover"
-          />
+          <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
+            <div className="w-full h-full flex items-center justify-center bg-gray-300">
+              <span className="text-gray-600 text-lg">
+                {passenger?.name?.charAt(0) || "P"}
+              </span>
+            </div>
+          </div>
           <div>
-            <h2 className="font-medium">{passenger.name}</h2>
+            <h2 className="font-medium">{passenger?.name || "Passenger"}</h2>
             <div className="flex gap-2">
-              {passenger.paymentMethod && (
+              {passenger?.paymentMethod && (
                 <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
                   {passenger.paymentMethod}
-                </span>
-              )}
-              {passenger.hasDiscount && (
-                <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                  Discount Applied
                 </span>
               )}
             </div>
           </div>
         </div>
         <div className="text-right">
-          <p className="font-semibold">${fare.toFixed(2)}</p>
-          <p className="text-sm text-gray-500">{distance} km</p>
+          <p className="font-semibold">₹{fare?.toFixed(2) || "0.00"}</p>
+          <p className="text-sm text-gray-500">
+            {distance} • {formattedDuration}
+          </p>
         </div>
       </div>
 
@@ -42,19 +70,18 @@ const AcceptedRideDetails = ({ rideDetails, onCancel, onGoToPickup }) => {
           <MapPin className="w-5 h-5 text-gray-400 mt-1" />
           <div>
             <p className="text-sm text-gray-500">PICKUP</p>
-            <p className="font-medium">{pickup.address}</p>
+            <p className="font-medium">{pickup?.address}</p>
           </div>
         </div>
         <div className="flex items-start gap-3">
           <MapPin className="w-5 h-5 text-black mt-1" />
           <div>
             <p className="text-sm text-gray-500">DROP-OFF</p>
-            <p className="font-medium">{dropoff.address}</p>
+            <p className="font-medium">{dropoff?.address}</p>
           </div>
         </div>
       </div>
 
-      {/* Notes Section */}
       {notes && (
         <div className="px-4 py-3 bg-gray-50">
           <p className="text-sm">{notes}</p>
@@ -67,10 +94,10 @@ const AcceptedRideDetails = ({ rideDetails, onCancel, onGoToPickup }) => {
           PAYMENT DETAILS
         </h3>
         <div className="space-y-2">
-          {payments.map((payment, index) => (
+          {payments?.map((payment, index) => (
             <div key={index} className="flex justify-between">
               <span className="text-gray-600">{payment.label}</span>
-              <span className="font-medium">${payment.amount.toFixed(2)}</span>
+              <span className="font-medium">₹{payment.amount?.toFixed(2)}</span>
             </div>
           ))}
         </div>

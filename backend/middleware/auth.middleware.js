@@ -26,15 +26,19 @@ module.exports.authUser = async (req, res, next) => {
       return next(new AppError("Token is blacklisted", 401));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await userModel.findById(decoded._id);
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await userModel.findById(decoded._id);
 
-    if (!user) {
-      return next(new AppError("User not found", 401));
+      if (!user) {
+        return next(new AppError("User not found", 401));
+      }
+
+      req.user = user;
+      next();
+    } catch (error) {
+      return next(new AppError("Invalid token", 401));
     }
-
-    req.user = user;
-    next();
   } catch (error) {
     if (error.name === "JsonWebTokenError") {
       return next(new AppError("Invalid token", 401));

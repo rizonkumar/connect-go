@@ -80,6 +80,7 @@ const CaptainHome = () => {
 
   const handleAcceptRide = (ride) => {
     if (socket) {
+      console.log("Accepting ride:", ride);
       socket.emit("ride:accept", {
         rideId: ride.rideId,
         captainId: captain._id,

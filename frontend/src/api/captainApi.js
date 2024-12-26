@@ -13,3 +13,8 @@ export const getCaptainProfile = () => {
 export const getCaptainRideHistory = () => {
   return generalApi.GeneralApi.get("/api/rides/captain/rides");
 };
+
+
+export const acceptRide = (rideId) => {
+  return generalApi.GeneralApi.post("/api/rides/accept-ride", { rideId });
+};
