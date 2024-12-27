@@ -19,11 +19,10 @@ const RideRequest = ({
     }).format(price);
   };
 
-  // RideRequest.jsx
   const handleAcceptRide = async (request) => {
     try {
       const response = await acceptRide(request.rideId);
-
+      console.log("Accept Ride Response:", response);
       if (response.data.status === "success") {
         // Call the parent handler
         onAcceptRide(request);

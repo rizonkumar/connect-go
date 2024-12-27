@@ -1,4 +1,4 @@
-const captainModel = require("../models/captain.model");
+  const captainModel = require("../models/captain.model");
 const AppError = require("../utils/AppError");
 const captianService = require("../services/captain.service");
 const { validationResult } = require("express-validator");
