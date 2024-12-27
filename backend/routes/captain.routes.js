@@ -6,7 +6,7 @@ const {
   loginCaptain,
   getCaptainProfile,
   logoutCaptain,
-} = require("../controllers/captian.controller");
+} = require("../controllers/captain.controller");
 const { authCaptain } = require("../middleware/auth.middleware");
 
 router.post(
