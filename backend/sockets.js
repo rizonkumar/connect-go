@@ -11,6 +11,7 @@ module.exports = (io) => {
     // Captain/Driver comes online
     socket.on("captain:online", async (captainData) => {
       try {
+        console.log("Captain came online:", captainData);
 
         // Create new session record
         await CaptainSession.create({
@@ -74,12 +75,18 @@ module.exports = (io) => {
     // Captain accepts ride
     socket.on("ride:accept", async (data) => {
       try {
+        console.log("Captain accepting ride:", data);
         const { rideId, captainId } = data;
 
         // Find the ride and calculate duration
         const ride = await Ride.findById(rideId);
         if (!ride) {
           socket.emit("ride:error", { message: "Ride not found" });
+          return;
+        }
+
+        if (ride.status !== "pending") {
+          socket.emit("ride:error", { message: "Ride is no longer available" });
           return;
         }
 
@@ -107,13 +114,15 @@ module.exports = (io) => {
           return;
         }
 
-        // Notify the user
+        // Notify the user with complete ride details
         io.to(ride.user.toString()).emit("ride:accepted", {
           rideId: updatedRide._id,
           captain: {
             id: updatedRide.captain._id,
             name: `${updatedRide.captain.fullName.firstName} ${updatedRide.captain.fullName.lastName}`,
             vehicle: updatedRide.captain.vehicle,
+            phone: updatedRide.captain.phone,
+            rating: updatedRide.captain.rating || 4.5,
           },
           fare: updatedRide.fare,
           duration: distanceTime.durationInMinutes,
@@ -123,11 +132,45 @@ module.exports = (io) => {
           otp: updatedRide.otp,
         });
 
-        // Notify other drivers
+        // Notify other drivers that ride is no longer available
         socket.broadcast.emit("ride:unavailable", rideId);
+
+        // Send confirmation to accepting captain
+        socket.emit("ride:acceptance_confirmed", {
+          rideId: updatedRide._id,
+          pickup: updatedRide.pickup,
+          destination: updatedRide.destination,
+          fare: updatedRide.fare,
+          otp: updatedRide.otp,
+          duration: distanceTime.durationInMinutes,
+          durationText: distanceTime.durationText,
+          distance: distanceTime.distance,
+          passenger: {
+            id: ride.user,
+            // You might want to populate user details here
+          },
+        });
       } catch (error) {
         console.error("Error accepting ride:", error);
         socket.emit("ride:error", { message: error.message });
+      }
+    });
+
+    // Handle ride start (after OTP verification)
+    socket.on("ride:start", async (rideId) => {
+      try {
+        const ride = await Ride.findByIdAndUpdate(
+          rideId,
+          { status: "ongoing" },
+          { new: true }
+        );
+
+        if (ride) {
+          io.to(ride.user.toString()).emit("ride:started", { rideId });
+          io.to(ride.captain.toString()).emit("ride:started", { rideId });
+        }
+      } catch (error) {
+        console.error("Error starting ride:", error);
       }
     });
 
@@ -150,6 +193,7 @@ module.exports = (io) => {
             distance: ride.distance,
             duration: ride.duration,
           });
+
           if (ride.captain) {
             io.to(ride.captain.toString()).emit("ride:completed", {
               rideId,
@@ -184,6 +228,34 @@ module.exports = (io) => {
         }
       } catch (error) {
         console.error("Error cancelling ride:", error);
+      }
+    });
+
+    // Handle captain location updates
+    socket.on("captain:location_update", async (data) => {
+      try {
+        const { captainId, location, rideId } = data;
+
+        // Update captain's location in database
+        await Captain.findByIdAndUpdate(captainId, {
+          location: {
+            lat: location.latitude,
+            lng: location.longitude,
+          },
+        });
+
+        // If there's an active ride, emit location to user
+        if (rideId) {
+          const ride = await Ride.findById(rideId);
+          if (ride && ride.user) {
+            io.to(ride.user.toString()).emit("ride:location_update", {
+              location,
+              rideId,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error updating captain location:", error);
       }
     });
 

@@ -6,7 +6,7 @@ import { getDistanceTime } from "../api/userApi";
 const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
   const [isSearching, setIsSearching] = useState(true);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(30); // Changed to 30 seconds
+  const [timeLeft, setTimeLeft] = useState(30);
   const socket = useSocket();
   const [acceptedRide, setAcceptedRide] = useState(null);
   const [distanceTime, setDistanceTime] = useState(null);
@@ -29,33 +29,26 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
   useEffect(() => {
     let timerId;
 
-    if (isSearching && timeLeft > 0) {
-      timerId = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setShowCancelConfirm(true);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
     if (socket) {
       // Listen for ride acceptance
       socket.on("ride:accepted", (acceptedRideData) => {
-        console.log("Ride accepted:", acceptedRideData);
+        console.log("Ride accepted event received:", acceptedRideData);
+        // Immediately stop the searching state
         setIsSearching(false);
         setShowCancelConfirm(false);
+        clearInterval(timerId); // Clear the timer
 
-        setAcceptedRide({
+        // Format the accepted ride data
+        const formattedRideData = {
           passenger: {
             name: acceptedRideData.captain.name,
             image:
               acceptedRideData.captain.image ||
               "https://via.placeholder.com/100",
-            paymentMethod: "Cash",
-            hasDiscount: false,
+          },
+          captain: {
+            ...acceptedRideData.captain,
+            vehicle: acceptedRideData.captain.vehicle,
           },
           pickup: {
             address: pickup,
@@ -67,52 +60,43 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
           distance: distanceTime?.distance || "Calculating...",
           duration: acceptedRideData.duration,
           durationText: acceptedRideData.durationText,
-          notes: "",
-          payments: [
-            {
-              label: "Ride Fare",
-              amount: acceptedRideData.fare,
-            },
-          ],
-          captain: acceptedRideData.captain,
-          rideId: acceptedRideData.rideId,
           otp: acceptedRideData.otp,
-        });
+          rideId: acceptedRideData.rideId,
+          status: "accepted",
+        };
+
+        setAcceptedRide(formattedRideData);
       });
 
-      // Listen for ride unavailable event
-      socket.on("ride:unavailable", (rideId) => {
-        console.log("Ride became unavailable:", rideId);
+      // Listen for ride cancellation
+      socket.on("ride:cancelled", ({ rideId }) => {
         if (acceptedRide?.rideId === rideId) {
-          setIsSearching(true);
           setAcceptedRide(null);
+          setIsSearching(false);
+          onCancel(); // Go back to previous screen
         }
       });
 
-      // Listen for errors
+      // Listen for ride errors
       socket.on("ride:error", (error) => {
         console.error("Ride error:", error);
-        // Handle error appropriately
+        setIsSearching(false);
+        onCancel();
       });
     }
 
+    // Cleanup function
     return () => {
-      clearInterval(timerId);
       if (socket) {
         socket.off("ride:accepted");
-        socket.off("ride:unavailable");
+        socket.off("ride:cancelled");
         socket.off("ride:error");
       }
+      if (timerId) {
+        clearInterval(timerId);
+      }
     };
-  }, [
-    socket,
-    isSearching,
-    timeLeft,
-    pickup,
-    dropoff,
-    distanceTime,
-    acceptedRide,
-  ]);
+  }, [socket, pickup, dropoff, distanceTime, acceptedRide, onCancel]);
 
   const handleCancel = () => {
     if (socket) {
@@ -127,7 +111,7 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
       <AcceptedRideDetails
         rideDetails={acceptedRide}
         onCancel={() => setShowCancelConfirm(true)}
-        onGoToPickup={() => console.log("Navigating to pickup")}
+        onGoToPickup={() => navigate("/riding")}
       />
     );
   }

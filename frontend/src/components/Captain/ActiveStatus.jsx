@@ -5,6 +5,7 @@ import {
   Navigation2,
   CreditCard,
   ThumbsUp,
+  User,
   ThumbsDown,
 } from "lucide-react";
 import { useSocket } from "../../context/SocketContext";
