@@ -24,8 +24,36 @@ const RideRequest = ({
       const response = await acceptRide(request.rideId);
       console.log("Accept Ride Response:", response);
       if (response.data.status === "success") {
-        // Call the parent handler
-        onAcceptRide(request);
+        // Format the ride data for AcceptedRideDetails component
+        const formattedRideDetails = {
+          passenger: {
+            name: request.userName || "Passenger",
+            paymentMethod: "Cash",
+            hasDiscount: false,
+          },
+          pickup: {
+            address: response.data.data.ride.pickup,
+          },
+          dropoff: {
+            address: response.data.data.ride.destination,
+          },
+          fare: response.data.data.ride.fare,
+          distance: request.distance || "Calculating...",
+          duration: response.data.data.ride.duration,
+          durationText: response.data.data.ride.durationText,
+          otp: response.data.data.ride.otp,
+          rideId: response.data.data.ride._id,
+          status: response.data.data.ride.status,
+          notes: "",
+          payments: [
+            {
+              label: "Ride Fare",
+              amount: response.data.data.ride.fare,
+            },
+          ],
+        };
+
+        onAcceptRide(formattedRideDetails);
       } else {
         throw new Error(response.data.message || "Failed to accept ride");
       }
