@@ -1,6 +1,7 @@
 const onlineDrivers = new Map();
 const Ride = require("./models/ride.model");
 const Captain = require("./models/captain.model");
+const CaptainSession = require("./models/captainSession.model");
 const mapService = require("./services/map.service");
 
 module.exports = (io) => {
@@ -10,7 +11,13 @@ module.exports = (io) => {
     // Captain/Driver comes online
     socket.on("captain:online", async (captainData) => {
       try {
-        console.log("Captain came online:", captainData);
+
+        // Create new session record
+        await CaptainSession.create({
+          captain: captainData.id,
+          loginTime: new Date(),
+          isActive: true,
+        });
 
         // Update captain's socket ID in database
         await Captain.findByIdAndUpdate(captainData.id, {
@@ -33,6 +40,24 @@ module.exports = (io) => {
     socket.on("captain:offline", async (captainId) => {
       try {
         console.log("Captain went offline:", captainId);
+
+        // End active session
+        const activeSession = await CaptainSession.findOne({
+          captain: captainId,
+          isActive: true,
+        });
+
+        if (activeSession) {
+          const logoutTime = new Date();
+          const durationMinutes = Math.round(
+            (logoutTime - activeSession.loginTime) / (1000 * 60)
+          );
+
+          activeSession.logoutTime = logoutTime;
+          activeSession.isActive = false;
+          activeSession.duration = durationMinutes;
+          await activeSession.save();
+        }
 
         await Captain.findByIdAndUpdate(captainId, {
           socketId: null,
@@ -72,6 +97,7 @@ module.exports = (io) => {
             captain: captainId,
             duration: distanceTime.durationInMinutes,
             durationText: distanceTime.durationText,
+            distance: distanceTime.distance || 0,
           },
           { new: true }
         ).populate("captain");
@@ -92,6 +118,7 @@ module.exports = (io) => {
           fare: updatedRide.fare,
           duration: distanceTime.durationInMinutes,
           durationText: distanceTime.durationText,
+          distance: distanceTime.distance,
           status: updatedRide.status,
           otp: updatedRide.otp,
         });
@@ -101,6 +128,39 @@ module.exports = (io) => {
       } catch (error) {
         console.error("Error accepting ride:", error);
         socket.emit("ride:error", { message: error.message });
+      }
+    });
+
+    // Handle ride completion
+    socket.on("ride:complete", async (rideId) => {
+      try {
+        if (!rideId) return;
+
+        const ride = await Ride.findByIdAndUpdate(
+          rideId,
+          { status: "completed" },
+          { new: true }
+        );
+
+        if (ride) {
+          // Notify relevant parties about completion
+          io.to(ride.user.toString()).emit("ride:completed", {
+            rideId,
+            fare: ride.fare,
+            distance: ride.distance,
+            duration: ride.duration,
+          });
+          if (ride.captain) {
+            io.to(ride.captain.toString()).emit("ride:completed", {
+              rideId,
+              fare: ride.fare,
+              distance: ride.distance,
+              duration: ride.duration,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error completing ride:", error);
       }
     });
 
@@ -133,6 +193,24 @@ module.exports = (io) => {
         // Find and update captain status if it was a captain socket
         for (const [captainId, data] of onlineDrivers.entries()) {
           if (data.socketId === socket.id) {
+            // End active session
+            const activeSession = await CaptainSession.findOne({
+              captain: captainId,
+              isActive: true,
+            });
+
+            if (activeSession) {
+              const logoutTime = new Date();
+              const durationMinutes = Math.round(
+                (logoutTime - activeSession.loginTime) / (1000 * 60)
+              );
+
+              activeSession.logoutTime = logoutTime;
+              activeSession.isActive = false;
+              activeSession.duration = durationMinutes;
+              await activeSession.save();
+            }
+
             await Captain.findByIdAndUpdate(captainId, {
               socketId: null,
               status: "inactive",

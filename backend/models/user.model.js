@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema({
   socketId: {
     type: String,
   },
+  refreshToken: {
+    type: String,
+    select: false,
+  }
 });
 
 userSchema.methods.generateAuthToken = function () {
@@ -46,6 +50,15 @@ userSchema.methods.comparePassword = async function (password) {
 userSchema.statics.hashPassword = async function (password) {
   const hashedPassword = await bcrypt.hash(password, 10);
   return hashedPassword;
+};
+
+userSchema.methods.generateRefreshToken = function () {
+  const refreshToken = jwt.sign(
+    { _id: this._id },
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: "7d" }
+  );
+  return refreshToken;
 };
 
 const userModel = mongoose.model("User", userSchema);

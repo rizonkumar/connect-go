@@ -1,5 +1,4 @@
 const userModel = require("../models/user.model");
-const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const AppError = require("../utils/AppError");
 const blacklistTokenModel = require("../models/blacklistToken.model");
@@ -7,28 +6,22 @@ const captainModel = require("../models/captain.model");
 
 module.exports.authUser = async (req, res, next) => {
   try {
-    let token;
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    } else if (req.cookies.token) {
-      token = req.cookies.token;
-    }
+    let token = req.headers.authorization?.split(" ")[1] || req.cookies?.token;
 
     if (!token) {
       return next(new AppError("No token provided. Please login first", 401));
     }
 
-    const isBlacklisted = await blacklistTokenModel.findOne({ token: token });
+    const isBlacklisted = await blacklistTokenModel.findOne({ token });
     if (isBlacklisted) {
       return next(new AppError("Token is blacklisted", 401));
     }
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await userModel.findById(decoded._id);
+      const user = await userModel
+        .findById(decoded._id)
+        .select("+refreshToken");
 
       if (!user) {
         return next(new AppError("User not found", 401));
@@ -37,61 +30,96 @@ module.exports.authUser = async (req, res, next) => {
       req.user = user;
       next();
     } catch (error) {
+      if (error.name === "TokenExpiredError") {
+        // Try to use refresh token
+        const refreshToken =
+          req.cookies?.refreshToken || req.headers["x-refresh-token"];
+
+        if (refreshToken) {
+          try {
+            const decoded = jwt.verify(
+              refreshToken,
+              process.env.REFRESH_TOKEN_SECRET
+            );
+            const user = await userModel
+              .findById(decoded._id)
+              .select("+refreshToken");
+
+            if (user && user.refreshToken === refreshToken) {
+              const newAccessToken = user.generateAuthToken();
+              res.setHeader("x-new-token", newAccessToken);
+              req.user = user;
+              return next();
+            }
+          } catch (refreshError) {
+            return next(new AppError("Refresh token invalid", 401));
+          }
+        }
+        return next(new AppError("Token expired", 401));
+      }
       return next(new AppError("Invalid token", 401));
     }
   } catch (error) {
-    if (error.name === "JsonWebTokenError") {
-      return next(new AppError("Invalid token", 401));
-    }
-    if (error.name === "TokenExpiredError") {
-      return next(new AppError("Token expired", 401));
-    }
     return next(error);
   }
 };
 
 module.exports.authCaptain = async (req, res, next) => {
   try {
-    let token;
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    } else if (req.cookies.token) {
-      token = req.cookies.token;
-    }
+    let token = req.headers.authorization?.split(" ")[1] || req.cookies?.token;
 
     if (!token) {
       return next(new AppError("No token provided. Please login first", 401));
     }
 
-    const isBlacklisted = await blacklistTokenModel.findOne({ token: token });
+    const isBlacklisted = await blacklistTokenModel.findOne({ token });
     if (isBlacklisted) {
       return next(new AppError("Token is blacklisted", 401));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const captain = await captainModel.findById(decoded._id);
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const captain = await captainModel
+        .findById(decoded._id)
+        .select("+refreshToken");
 
-    if (!captain) {
-      return next(new AppError("User not found", 401));
-    }
+      if (!captain) {
+        return next(new AppError("Captain not found", 401));
+      }
 
-    // Comment this code for now
-    // if (captain.status === "inactive") {
-    //   return next(new AppError("Captain account is inactive", 403));
-    // }
+      req.captain = captain;
+      next();
+    } catch (error) {
+      if (error.name === "TokenExpiredError") {
+        // Try to use refresh token
+        const refreshToken =
+          req.cookies?.refreshToken || req.headers["x-refresh-token"];
 
-    req.captain = captain;
-    next();
-  } catch (error) {
-    if (error.name === "JsonWebTokenError") {
+        if (refreshToken) {
+          try {
+            const decoded = jwt.verify(
+              refreshToken,
+              process.env.REFRESH_TOKEN_SECRET
+            );
+            const captain = await captainModel
+              .findById(decoded._id)
+              .select("+refreshToken");
+
+            if (captain && captain.refreshToken === refreshToken) {
+              const newAccessToken = captain.generateAuthToken();
+              res.setHeader("x-new-token", newAccessToken);
+              req.captain = captain;
+              return next();
+            }
+          } catch (refreshError) {
+            return next(new AppError("Refresh token invalid", 401));
+          }
+        }
+        return next(new AppError("Token expired", 401));
+      }
       return next(new AppError("Invalid token", 401));
     }
-    if (error.name === "TokenExpiredError") {
-      return next(new AppError("Token expired", 401));
-    }
+  } catch (error) {
     return next(error);
   }
 };

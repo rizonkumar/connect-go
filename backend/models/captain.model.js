@@ -65,11 +65,15 @@ const captainSchema = new mongoose.Schema({
       type: Number,
     },
   },
+  refreshToken: {
+    type: String,
+    select: false,
+  },
 });
 
 captainSchema.methods.generateAuthToken = function () {
   const token = jwt.sign({ _id: this._id }, process.env.JWT_SECRET, {
-    expiresIn: "1d",
+    expiresIn: "24h",
   });
   return token;
 };
@@ -82,6 +86,15 @@ captainSchema.methods.comparePassword = async function (password) {
 captainSchema.statics.hashPassword = async function (password) {
   const hashedPassword = await bcrypt.hash(password, 10);
   return hashedPassword;
+};
+
+captainSchema.methods.generateRefreshToken = function () {
+  const refreshToken = jwt.sign(
+    { _id: this._id },
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: "7d" } 
+  );
+  return refreshToken;
 };
 
 const captainModel = mongoose.model("Captain", captainSchema);

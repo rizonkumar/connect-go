@@ -2,12 +2,12 @@ import { useContext, useEffect, useState } from "react";
 import { useSocket } from "../context/SocketContext";
 import { CaptainDataContext } from "../context/CaptainContext";
 import InactiveStatus from "../components/Captain/InactiveStatus";
-import { captainStats } from "../../constants/data";
 import ActiveStatus from "../components/Captain/ActiveStatus";
 import RideRequest from "../components/Captain/RideRequest";
 import AcceptedRideDetails from "../components/Captain/AcceptedRideDetails";
 import PickupContainer from "../components/Captain/PickupContainer";
 import ProfileDropdown from "../components/ProfileDropdown";
+import { getCaptainStats } from "../api/captainApi";
 
 const CaptainHome = () => {
   const socket = useSocket();
@@ -17,6 +17,13 @@ const CaptainHome = () => {
   const [acceptedRide, setAcceptedRide] = useState(null);
   const [showPickup, setShowPickup] = useState(false);
   const [rideRequests, setRideRequests] = useState([]);
+  const [stats, setStats] = useState({
+    totalHours: 0,
+    totalDistance: 0,
+    totalJobs: 0,
+    earnings: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!socket) return;
@@ -56,6 +63,25 @@ const CaptainHome = () => {
       }
     };
   }, [socket, isOnline, captain]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setIsLoading(true);
+        const response = await getCaptainStats();
+        console.log("Captain Stats:", response.data);
+        if(response.data.status === "success") {
+          setStats(response.data.data);
+        }
+      } catch (error) {
+        console.log("Error fetching captain stats:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchStats();
+  }, []);
 
   const handleGoOnline = () => {
     setIsOnline(true);
@@ -110,14 +136,20 @@ const CaptainHome = () => {
     setAcceptedRide(null);
     setShowPickup(false);
   };
+  
 
   return (
     <div>
       {!isOnline ? (
         <InactiveStatus
-          {...captainStats}
+          totalHours={stats.totalHours}
+          totalDistance={stats.totalDistance}
+          totalJobs={stats.totalJobs}
+          earnings={stats.earnings}
+          name={`${captain?.fullName?.firstName} ${captain?.fullName?.lastName}`}
           onGoOnline={handleGoOnline}
           headerRight={<ProfileDropdown userType="captain" />}
+          isLoading={isLoading}
         />
       ) : (
         <>

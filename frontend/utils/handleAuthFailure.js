@@ -1,6 +1,7 @@
-export const handleAuthFailure = async (statusCode) => {
+export const handleAuthFailure = async (statusCode, userType = "captain") => {
   if (statusCode === 401) {
-    localStorage.removeItem("accessToken");
-    window.location.href = process.env.VITE_BASE_URL;
+    localStorage.removeItem(`${userType}Token`);
+    localStorage.removeItem("refreshToken");
+    window.location.href = userType === "captain" ? "/captain-login" : "/login";
   }
 };

@@ -3,6 +3,7 @@ const userModel = require("../models/user.model");
 const userService = require("../services/user.service");
 const AppError = require("../utils/AppError");
 const blacklistTokenModel = require("../models/blacklistToken.model");
+const { handleLogout } = require("./auth.controller");
 
 module.exports.registerUser = async (req, res, next) => {
   try {
@@ -69,50 +70,37 @@ module.exports.registerUser = async (req, res, next) => {
   }
 };
 
-module.exports.loginUser = async (req, res, next) => {
+exports.loginUser = async (req, res, next) => {
   try {
-    const error = validationResult(req);
-    if (!error.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: error.array(),
-      });
-    }
-
     const { email, password } = req.body;
 
     const user = await userModel.findOne({ email }).select("+password");
-
-    if (!user) {
+    if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
       });
     }
 
-    const isMatch = await user.comparePassword(password);
+    const accessToken = user.generateAuthToken();
+    const refreshToken = user.generateRefreshToken();
 
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
+    // Save refresh token
+    user.refreshToken = refreshToken;
+    await user.save();
 
-    const token = user.generateAuthToken();
-
-    res.cookie("token", token, {
+    res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     res.status(200).json({
       success: true,
       message: "User logged in successfully",
       data: {
-        token,
+        token: accessToken,
+        refreshToken,
         user: {
           fullName: user.fullName,
           email: user.email,
@@ -121,7 +109,7 @@ module.exports.loginUser = async (req, res, next) => {
       },
     });
   } catch (error) {
-    throw new AppError("Something went wrong", 500);
+    next(error);
   }
 };
 
@@ -139,12 +127,11 @@ module.exports.getUserProfile = async (req, res, next) => {
   });
 };
 
-module.exports.logoutUser = async (req, res, next) => {
-  res.clearCookie("token");
-  const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
-  await blacklistTokenModel.create({ token });
-  res.status(200).json({
-    success: true,
-    message: "User logged out successfully",
-  });
+exports.logoutUser = async (req, res, next) => {
+  await handleLogout(userModel, req, res, next);
+};
+
+
+exports.refreshUserToken = async (req, res, next) => {
+  await handleRefreshToken(userModel, req, res, next);
 };

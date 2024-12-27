@@ -59,11 +59,17 @@ export const verifyToken = (userType = "user") => {
   }
 };
 
-// Refresh token
-export const refreshToken = (userType = "user") => {
+export const refreshToken = (userType = "captain") => {
   const url =
     userType === "captain" ? "/api/captains/refresh" : "/api/users/refresh";
-  return generalApi.GeneralApi.post(url);
+
+  const refreshToken = localStorage.getItem("refreshToken");
+
+  return generalApi.GeneralApi.post(url, null, {
+    headers: {
+      "x-refresh-token": refreshToken,
+    },
+  });
 };
 
 // Logout

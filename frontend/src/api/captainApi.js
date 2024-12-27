@@ -18,3 +18,7 @@ export const getCaptainRideHistory = () => {
 export const acceptRide = (rideId) => {
   return generalApi.GeneralApi.post("/api/rides/accept-ride", { rideId });
 };
+
+export const getCaptainStats = () => {
+  return generalApi.GeneralApi.get("/api/captains/stats"); 
+}

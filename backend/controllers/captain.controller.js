@@ -1,8 +1,9 @@
-  const captainModel = require("../models/captain.model");
+const captainModel = require("../models/captain.model");
 const AppError = require("../utils/AppError");
-const captianService = require("../services/captain.service");
+const captainService = require("../services/captain.service");
 const { validationResult } = require("express-validator");
 const blacklistTokenModel = require("../models/blacklistToken.model");
+const { handleLogout } = require("./auth.controller");
 
 module.exports.registerCaptain = async (req, res, next) => {
   try {
@@ -25,7 +26,7 @@ module.exports.registerCaptain = async (req, res, next) => {
 
     const hashedPassword = await captainModel.hashPassword(password);
 
-    const captain = await captianService.createCaptain({
+    const captain = await captainService.createCaptain({
       firstName: fullName.firstName,
       lastName: fullName.lastName,
       email,
@@ -59,52 +60,47 @@ module.exports.registerCaptain = async (req, res, next) => {
   }
 };
 
-module.exports.loginCaptain = async (req, res, next) => {
+exports.loginCaptain = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
-
     const { email, password } = req.body;
 
     const captain = await captainModel.findOne({ email }).select("+password");
-
-    if (!captain) {
+    if (!captain || !(await captain.comparePassword(password))) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
       });
     }
 
-    const isPasswordMatch = await captain.comparePassword(password);
+    const accessToken = captain.generateAuthToken();
+    const refreshToken = captain.generateRefreshToken();
 
-    if (!isPasswordMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
-    }
+    // Save refresh token
+    captain.refreshToken = refreshToken;
+    await captain.save();
 
-    const token = captain.generateAuthToken();
-
-    // Remove password from response
-    const sanitizedCaptain = captain.toObject();
-    delete sanitizedCaptain.password;
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Captain logged in successfully",
       data: {
-        captain: sanitizedCaptain,
-        token,
+        token: accessToken,
+        refreshToken,
+        captain: {
+          fullName: captain.fullName,
+          email: captain.email,
+          _id: captain._id,
+          vehicle: captain.vehicle,
+        },
       },
     });
   } catch (error) {
-    next(new AppError(error.message || "An error occurred during login", 500));
+    next(error);
   }
 };
 
@@ -130,24 +126,22 @@ module.exports.getCaptainProfile = async (req, res, next) => {
   }
 };
 
-module.exports.logoutCaptain = async (req, res, next) => {
+exports.logoutCaptain = async (req, res, next) => {
+  await handleLogout(captainModel, req, res, next);
+};
+
+module.exports.getCaptainStats = async (req, res, next) => {
   try {
-    const token =
-      req.cookies?.token || req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-      return next(new AppError("No token found", 400));
-    }
-
-    await blacklistTokenModel.create({ token });
-
-    res.clearCookie("token");
-
+    const stats = await captainService.getCaptainStats(req.captain._id);
     res.status(200).json({
-      status: "success",
-      message: "Captain logged out successfully",
+      status: 'success',
+      data: stats
     });
   } catch (error) {
-    next(new AppError(error.message || "Error during logout", 500));
+    next(error);
   }
+};
+
+exports.refreshCaptainToken = async (req, res, next) => {
+  await handleRefreshToken(captainModel, req, res, next);
 };
