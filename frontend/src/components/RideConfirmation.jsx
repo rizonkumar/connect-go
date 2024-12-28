@@ -29,16 +29,25 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
   useEffect(() => {
     let timerId;
 
+    if (isSearching && timeLeft > 0) {
+      timerId = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            setShowCancelConfirm(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
     if (socket) {
-      // Listen for ride acceptance
       socket.on("ride:accepted", (acceptedRideData) => {
         console.log("Ride accepted event received:", acceptedRideData);
-        // Immediately stop the searching state
+        clearInterval(timerId);
         setIsSearching(false);
         setShowCancelConfirm(false);
-        clearInterval(timerId); // Clear the timer
 
-        // Format the accepted ride data
         const formattedRideData = {
           passenger: {
             name: acceptedRideData.captain.name,
@@ -68,16 +77,14 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
         setAcceptedRide(formattedRideData);
       });
 
-      // Listen for ride cancellation
       socket.on("ride:cancelled", ({ rideId }) => {
         if (acceptedRide?.rideId === rideId) {
           setAcceptedRide(null);
           setIsSearching(false);
-          onCancel(); // Go back to previous screen
+          onCancel();
         }
       });
 
-      // Listen for ride errors
       socket.on("ride:error", (error) => {
         console.error("Ride error:", error);
         setIsSearching(false);
@@ -85,22 +92,19 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
       });
     }
 
-    // Cleanup function
     return () => {
+      clearInterval(timerId);
       if (socket) {
         socket.off("ride:accepted");
         socket.off("ride:cancelled");
         socket.off("ride:error");
       }
-      if (timerId) {
-        clearInterval(timerId);
-      }
     };
   }, [socket, pickup, dropoff, distanceTime, acceptedRide, onCancel]);
 
   const handleCancel = () => {
-    if (socket) {
-      socket.emit("ride:cancel", acceptedRide?.rideId);
+    if (socket && acceptedRide) {
+      socket.emit("ride:cancel", acceptedRide.rideId);
     }
     setIsSearching(false);
     onCancel();
@@ -111,13 +115,13 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
       <AcceptedRideDetails
         rideDetails={acceptedRide}
         onCancel={() => setShowCancelConfirm(true)}
-        onGoToPickup={() => navigate("/riding")}
+        onGoToPickup={() => console.log("Go to pickup")}
       />
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col">
+    <div className="fixed inset-0 bg-white z-50">
       {/* Map Area */}
       <div className="flex-1 relative bg-gray-100">
         <div className="absolute inset-0 flex items-center justify-center">

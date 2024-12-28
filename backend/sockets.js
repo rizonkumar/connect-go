@@ -72,14 +72,13 @@ module.exports = (io) => {
       }
     });
 
-    // Captain accepts ride
+    // In the ride:accept event handler in socket.js
     socket.on("ride:accept", async (data) => {
       try {
-        console.log("Captain accepting ride:", data);
         const { rideId, captainId } = data;
 
-        // Find the ride and calculate duration
-        const ride = await Ride.findById(rideId);
+        // Find the ride
+        const ride = await Ride.findById(rideId).populate("user");
         if (!ride) {
           socket.emit("ride:error", { message: "Ride not found" });
           return;
@@ -90,7 +89,7 @@ module.exports = (io) => {
           return;
         }
 
-        // Calculate distance and duration
+        // Calculate distance and time
         const distanceTime = await mapService.getDistanceTime(
           ride.pickup,
           ride.destination
@@ -114,7 +113,7 @@ module.exports = (io) => {
           return;
         }
 
-        // Notify the user with complete ride details
+        // Important: Emit to specific user's socket
         io.to(ride.user.toString()).emit("ride:accepted", {
           rideId: updatedRide._id,
           captain: {
@@ -128,28 +127,12 @@ module.exports = (io) => {
           duration: distanceTime.durationInMinutes,
           durationText: distanceTime.durationText,
           distance: distanceTime.distance,
-          status: updatedRide.status,
+          status: "accepted",
           otp: updatedRide.otp,
         });
 
-        // Notify other drivers that ride is no longer available
+        // Notify other drivers
         socket.broadcast.emit("ride:unavailable", rideId);
-
-        // Send confirmation to accepting captain
-        socket.emit("ride:acceptance_confirmed", {
-          rideId: updatedRide._id,
-          pickup: updatedRide.pickup,
-          destination: updatedRide.destination,
-          fare: updatedRide.fare,
-          otp: updatedRide.otp,
-          duration: distanceTime.durationInMinutes,
-          durationText: distanceTime.durationText,
-          distance: distanceTime.distance,
-          passenger: {
-            id: ride.user,
-            // You might want to populate user details here
-          },
-        });
       } catch (error) {
         console.error("Error accepting ride:", error);
         socket.emit("ride:error", { message: error.message });

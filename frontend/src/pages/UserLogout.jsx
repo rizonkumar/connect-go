@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useContext } from "react";
+import { useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../api/authApi";
 import { UserDataContext } from "../context/UserContext";
@@ -7,60 +7,45 @@ const UserLogout = ({ onLogoutSuccess }) => {
   const navigate = useNavigate();
   const { setUser } = useContext(UserDataContext);
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await logout("user");
-      setUser({
-        email: "",
-        fullName: {
-          firstName: "",
-          lastName: "",
-        },
-      });
-      localStorage.removeItem("userToken");
-      if (onLogoutSuccess) {
-        onLogoutSuccess();
-      }
-      // Move navigation to after state updates
-      setTimeout(() => {
-        navigate("/", { replace: true });
-      }, 0);
-    } catch (error) {
-      console.error("Logout failed:", error);
-      setUser({
-        email: "",
-        fullName: {
-          firstName: "",
-          lastName: "",
-        },
-      });
-      localStorage.removeItem("userToken");
-      if (onLogoutSuccess) {
-        onLogoutSuccess();
-      }
-      setTimeout(() => {
-        navigate("/", { replace: true });
-      }, 0);
-    }
-  }, [navigate, setUser, onLogoutSuccess]);
-
   useEffect(() => {
-    let mounted = true;
-
     const performLogout = async () => {
-      if (mounted) {
-        await handleLogout();
+      try {
+        await logout("user");
+      } catch (error) {
+        console.error("Logout failed:", error);
+      } finally {
+        // Clear user context
+        setUser({
+          email: "",
+          fullName: {
+            firstName: "",
+            lastName: "",
+          },
+        });
+
+        // Clear local storage
+        localStorage.removeItem("userToken");
+
+        // Call success callback if provided
+        if (onLogoutSuccess) {
+          onLogoutSuccess();
+        }
+
+        // Navigate to home
+        navigate("/", { replace: true });
       }
     };
 
     performLogout();
+    // Adding navigate and other dependencies
+  }, [navigate, setUser, onLogoutSuccess]);
 
-    return () => {
-      mounted = false;
-    };
-  }, [handleLogout]);
-
-  return <div>Logging out...</div>;
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+      <span className="ml-2">Logging out...</span>
+    </div>
+  );
 };
 
 export default UserLogout;
