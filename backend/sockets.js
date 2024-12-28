@@ -3,6 +3,7 @@ const Ride = require("./models/ride.model");
 const Captain = require("./models/captain.model");
 const CaptainSession = require("./models/captainSession.model");
 const mapService = require("./services/map.service");
+const User = require("./models/user.model");
 
 module.exports = (io) => {
   io.on("connection", (socket) => {
@@ -72,20 +73,22 @@ module.exports = (io) => {
       }
     });
 
-    // In the ride:accept event handler in socket.js
     socket.on("ride:accept", async (data) => {
       try {
+        console.log("Captain accepting ride:", data);
         const { rideId, captainId } = data;
 
-        // Find the ride
+        // Find the ride and populate user details
         const ride = await Ride.findById(rideId).populate("user");
         if (!ride) {
           socket.emit("ride:error", { message: "Ride not found" });
           return;
         }
 
-        if (ride.status !== "pending") {
-          socket.emit("ride:error", { message: "Ride is no longer available" });
+        // Get the user's socket ID from the database
+        const user = await User.findById(ride.user);
+        if (!user || !user.socketId) {
+          socket.emit("ride:error", { message: "User not connected" });
           return;
         }
 
@@ -95,7 +98,7 @@ module.exports = (io) => {
           ride.destination
         );
 
-        // Update ride with captain and duration
+        // Update ride in database
         const updatedRide = await Ride.findByIdAndUpdate(
           rideId,
           {
@@ -108,19 +111,14 @@ module.exports = (io) => {
           { new: true }
         ).populate("captain");
 
-        if (!updatedRide) {
-          socket.emit("ride:error", { message: "Failed to update ride" });
-          return;
-        }
-
-        // Important: Emit to specific user's socket
-        io.to(ride.user.toString()).emit("ride:accepted", {
+        // Prepare ride acceptance data
+        const acceptanceData = {
           rideId: updatedRide._id,
           captain: {
             id: updatedRide.captain._id,
             name: `${updatedRide.captain.fullName.firstName} ${updatedRide.captain.fullName.lastName}`,
             vehicle: updatedRide.captain.vehicle,
-            phone: updatedRide.captain.phone,
+            phone: updatedRide.captain.phone || "",
             rating: updatedRide.captain.rating || 4.5,
           },
           fare: updatedRide.fare,
@@ -129,10 +127,20 @@ module.exports = (io) => {
           distance: distanceTime.distance,
           status: "accepted",
           otp: updatedRide.otp,
-        });
+        };
+
+        // Emit to specific user socket
+        io.to(user.socketId).emit("ride:accepted", acceptanceData);
 
         // Notify other drivers
         socket.broadcast.emit("ride:unavailable", rideId);
+
+        // Confirm to captain
+        socket.emit("ride:acceptance_confirmed", {
+          ...acceptanceData,
+          pickup: updatedRide.pickup,
+          destination: updatedRide.destination,
+        });
       } catch (error) {
         console.error("Error accepting ride:", error);
         socket.emit("ride:error", { message: error.message });

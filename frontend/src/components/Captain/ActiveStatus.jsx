@@ -7,6 +7,7 @@ import {
   ThumbsUp,
   User,
   ThumbsDown,
+  Circle,
 } from "lucide-react";
 import { useSocket } from "../../context/SocketContext";
 

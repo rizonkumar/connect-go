@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSocket } from "../context/SocketContext";
-import AcceptedRideDetails from "./Captain/AcceptedRideDetails";
 import { getDistanceTime } from "../api/userApi";
+import RideInProgress from "./RideInProgress";
 
 const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
   const [isSearching, setIsSearching] = useState(true);
@@ -42,11 +42,17 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
     }
 
     if (socket) {
+      // Join user's room
+      socket.emit("join:user", { userId: socket.id });
+
       socket.on("ride:accepted", (acceptedRideData) => {
         console.log("Ride accepted event received:", acceptedRideData);
-        clearInterval(timerId);
+
+        // Clear timer and update states
+        if (timerId) clearInterval(timerId);
         setIsSearching(false);
         setShowCancelConfirm(false);
+        setTimeLeft(0);
 
         const formattedRideData = {
           passenger: {
@@ -66,7 +72,7 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
             address: dropoff,
           },
           fare: acceptedRideData.fare,
-          distance: distanceTime?.distance || "Calculating...",
+          distance: acceptedRideData.distance || "Calculating...",
           duration: acceptedRideData.duration,
           durationText: acceptedRideData.durationText,
           otp: acceptedRideData.otp,
@@ -77,30 +83,22 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
         setAcceptedRide(formattedRideData);
       });
 
-      socket.on("ride:cancelled", ({ rideId }) => {
-        if (acceptedRide?.rideId === rideId) {
-          setAcceptedRide(null);
-          setIsSearching(false);
-          onCancel();
-        }
-      });
-
       socket.on("ride:error", (error) => {
         console.error("Ride error:", error);
+        if (timerId) clearInterval(timerId);
         setIsSearching(false);
         onCancel();
       });
     }
 
     return () => {
-      clearInterval(timerId);
+      if (timerId) clearInterval(timerId);
       if (socket) {
         socket.off("ride:accepted");
-        socket.off("ride:cancelled");
         socket.off("ride:error");
       }
     };
-  }, [socket, pickup, dropoff, distanceTime, acceptedRide, onCancel]);
+  }, [socket, pickup, dropoff, onCancel]);
 
   const handleCancel = () => {
     if (socket && acceptedRide) {
@@ -111,11 +109,12 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
   };
 
   if (!isSearching && acceptedRide) {
+    console.log("2");
+    console.log("Ride accepted:", acceptedRide);
     return (
-      <AcceptedRideDetails
+      <RideInProgress
         rideDetails={acceptedRide}
         onCancel={() => setShowCancelConfirm(true)}
-        onGoToPickup={() => console.log("Go to pickup")}
       />
     );
   }
