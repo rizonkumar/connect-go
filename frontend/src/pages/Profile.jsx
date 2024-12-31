@@ -102,7 +102,7 @@ const Profile = () => {
           <div className="flex items-center justify-between h-16">
             <button
               onClick={() =>
-                navigate(isCaptainProfile ? "/captain-dashboard" : "/dashboard")
+                navigate(isCaptainProfile ? "/captain-home" : "/home")
               }
               className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
             >
@@ -162,7 +162,7 @@ const Profile = () => {
                     isCaptain={isCaptainProfile}
                     onAction={() =>
                       navigate(
-                        isCaptainProfile ? "/captain-dashboard" : "/book-ride",
+                        isCaptainProfile ? "/captain-dashboard" : "/book-ride"
                       )
                     }
                   />
