@@ -161,9 +161,7 @@ const Profile = () => {
                   <EmptyRideHistory
                     isCaptain={isCaptainProfile}
                     onAction={() =>
-                      navigate(
-                        isCaptainProfile ? "/captain-dashboard" : "/book-ride"
-                      )
+                      navigate(isCaptainProfile ? "/captain-home" : "/home")
                     }
                   />
                 ) : (
