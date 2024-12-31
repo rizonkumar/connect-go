@@ -26,13 +26,12 @@ const CaptainLogout = ({ onLogoutSuccess }) => {
         }
 
         // Navigate to home
-        navigate("/", { replace: true });
+        navigate("/captain-login", { replace: true });
       }
     };
 
     performLogout();
-    // Adding navigate and other dependencies
-  }, [navigate, setCaptain, onLogoutSuccess]);
+  }, [onLogoutSuccess, setCaptain]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

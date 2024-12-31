@@ -32,13 +32,12 @@ const UserLogout = ({ onLogoutSuccess }) => {
         }
 
         // Navigate to home
-        navigate("/", { replace: true });
+        navigate("/user-home", { replace: true });
       }
     };
 
     performLogout();
-    // Adding navigate and other dependencies
-  }, [navigate, setUser, onLogoutSuccess]);
+  }, [onLogoutSuccess, setUser, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
