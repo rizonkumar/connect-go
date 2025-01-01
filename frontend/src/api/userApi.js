@@ -33,7 +33,6 @@ export const createRide = async (pickup, destination, vehicleType) => {
       destination,
       vehicleType,
     };
-    console.log("Creating ride with:", body);
     const url = "/api/rides/create-ride";
     const response = await generalApi.GeneralApi.post(url, body);
     return response;
@@ -43,12 +42,11 @@ export const createRide = async (pickup, destination, vehicleType) => {
   }
 };
 
-
 export const getDistanceTime = async (pickup, dropoff) => {
   return generalApi.GeneralApi.get("/api/maps/get-distance-time", {
     params: {
       origin: pickup,
-      destination: dropoff
-    }
+      destination: dropoff,
+    },
   });
 };

@@ -7,35 +7,35 @@ const UserLogout = ({ onLogoutSuccess }) => {
   const navigate = useNavigate();
   const { setUser } = useContext(UserDataContext);
 
-  useEffect(() => {
-    const performLogout = async () => {
-      try {
-        await logout("user");
-      } catch (error) {
-        console.error("Logout failed:", error);
-      } finally {
-        // Clear user context
-        setUser({
-          email: "",
-          fullName: {
-            firstName: "",
-            lastName: "",
-          },
-        });
+  const performLogout = async () => {
+    try {
+      await logout("user");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      // Clear user context
+      setUser({
+        email: "",
+        fullName: {
+          firstName: "",
+          lastName: "",
+        },
+      });
 
-        // Clear local storage
-        localStorage.removeItem("userToken");
+      // Clear local storage
+      localStorage.removeItem("userToken");
 
-        // Call success callback if provided
-        if (onLogoutSuccess) {
-          onLogoutSuccess();
-        }
-
-        // Navigate to home
-        navigate("/user-home", { replace: true });
+      // Call success callback if provided
+      if (onLogoutSuccess) {
+        onLogoutSuccess();
       }
-    };
 
+      // Navigate to home
+      navigate("/user-home", { replace: true });
+    }
+  };
+
+  useEffect(() => {
     performLogout();
   }, [onLogoutSuccess, setUser, navigate]);
 

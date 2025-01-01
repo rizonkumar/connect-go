@@ -39,7 +39,6 @@ const RideConfirm = ({ selectedRide, pickup, dropoff, onNext, onBack }) => {
       }
 
       const response = await createRide(pickup, dropoff, vehicleType);
-      console.log("Create ride response:", response);
 
       if (response.data.status === "success") {
         onNext();
