@@ -224,12 +224,11 @@ const RideConfirmation = ({ pickup, dropoff, onCancel }) => {
                 <p className="font-medium text-gray-900">{dropoff}</p>
               </div>
             </div>
-
             {distanceTime && (
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex justify-between items-center">
-                  <p className="text-gray-600">Estimated journey time:</p>
-                  <p className="font-medium">{distanceTime.duration}</p>
+                  <p className="text-gray-800">Estimated journey time:</p>
+                  <p className="font-medium">{distanceTime.durationText}</p>
                 </div>
               </div>
             )}
