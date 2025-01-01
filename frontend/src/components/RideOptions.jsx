@@ -102,15 +102,7 @@ const RideOptions = ({ pickup, dropoff, onBack }) => {
     );
   }
 
-  if (showConfirmation) {
-    return (
-      <RideConfirmation
-        pickup={pickup}
-        dropoff={dropoff}
-        onCancel={() => setShowConfirmation(false)}
-      />
-    );
-  }
+  // TODO: we need to use this Riding Component after the RideConfirmation Component is done
 
   if (showConfirm) {
     return (
@@ -123,6 +115,16 @@ const RideOptions = ({ pickup, dropoff, onBack }) => {
           setShowConfirmation(true);
         }}
         onBack={handleBackFromRides}
+      />
+    );
+  }
+
+  if (showConfirmation) {
+    return (
+      <RideConfirmation
+        pickup={pickup}
+        dropoff={dropoff}
+        onCancel={() => setShowConfirmation(false)}
       />
     );
   }
