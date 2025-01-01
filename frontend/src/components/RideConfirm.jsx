@@ -39,7 +39,7 @@ const RideConfirm = ({ selectedRide, pickup, dropoff, onNext, onBack }) => {
       }
 
       const response = await createRide(pickup, dropoff, vehicleType);
-      console.log("Create ride response:", response); // For debugging
+      console.log("Create ride response:", response);
 
       if (response.data.status === "success") {
         onNext();
@@ -120,9 +120,6 @@ const RideConfirm = ({ selectedRide, pickup, dropoff, onNext, onBack }) => {
                     <p className="text-xl font-semibold">
                       ₹{selectedRide.price}
                     </p>
-                    <p className="text-sm text-gray-500 line-through">
-                      ₹{selectedRide.originalPrice}
-                    </p>
                   </div>
                 </div>
                 <div className="mt-3 flex items-center gap-2 text-gray-600">
@@ -138,6 +135,7 @@ const RideConfirm = ({ selectedRide, pickup, dropoff, onNext, onBack }) => {
             <div className="flex items-center gap-3">
               <span className="text-xl">💵</span>
               <span className="font-medium text-lg">Cash</span>
+              {/* TODO: implement payment gateway integration and Handle Change Payment Method */}
             </div>
             <button className="text-blue-600 font-medium hover:text-blue-800 transition-colors cursor-pointer">
               Change

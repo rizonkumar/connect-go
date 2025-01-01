@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { activeRideData } from "../../constants/data";
 
+console.log("1");
+
 const Riding = () => {
   const navigate = useNavigate();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
