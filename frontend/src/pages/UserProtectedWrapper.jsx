@@ -9,7 +9,7 @@ const UserProtectedWrapper = ({ children }) => {
     const checkAuth = () => {
       const isValid = verifyToken("user");
       if (!isValid) {
-        navigate("/login");
+        navigate("/");
       }
     };
 
