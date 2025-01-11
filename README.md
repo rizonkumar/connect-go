@@ -10,9 +10,8 @@ Driver Got a request to accept or reject the ride. but after accepting the ride 
 
 For the User Side still it's searching which shouls not be the case right?
 
-
-the response i got 
- {
+the response i got
+{
 "status": "success",
 "message": "Ride created successfully",
 "data": {

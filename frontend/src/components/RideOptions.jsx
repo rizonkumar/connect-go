@@ -8,7 +8,7 @@ import { getETA, getFares } from "../api/userApi";
 const RideOptions = ({ pickup, dropoff, onBack }) => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [selectedRide, setSelectedRide] = useState(rides[3]); // Default to Connect Auto
+  const [isRideAccepted, setIsRideAccepted] = useState(false);
   const [fares, setFares] = useState(null);
   const [eta, setETA] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -47,7 +47,7 @@ module.exports.getDistanceTime = async (req, res, next) => {
   } catch (error) {
     throw new AppError(
       error.message || "Error fetching distance and time",
-      500,
+      500
     );
   }
 };

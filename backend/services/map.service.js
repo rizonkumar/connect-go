@@ -32,7 +32,7 @@ module.exports.getDistanceTime = async (origin, destination) => {
     )}&destinations=${encodeURIComponent(destination)}&key=${apiKey}`;
 
     const response = await axios.get(url);
-    console.log("Google Maps API Response:", response.data); // Debug log
+    console.log("Google Maps API Response:", response.data);
 
     if (response.data.status !== "OK") {
       throw new AppError("Failed to get distance from Google Maps API", 400);
@@ -55,13 +55,13 @@ module.exports.getDistanceTime = async (origin, destination) => {
     console.log("Calculated values:", {
       distanceInKm,
       durationInMinutes,
-      durationText: element.duration.text
+      durationText: element.duration.text,
     });
 
     return {
       distanceInKm,
       durationInMinutes,
-      durationText: element.duration.text
+      durationText: element.duration.text,
     };
   } catch (error) {
     console.error("Error in getDistanceTime:", error);
